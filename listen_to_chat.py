@@ -6,9 +6,9 @@ import configargparse
 
 def create_argparser():
     p = configargparse.ArgParser(default_config_files=['~/.underchat'])
-    p.add('--host', default="minechat.dvmn.org", env_var="CHAT_HOST", help='Host to connect to')
-    p.add('--port', default=5000, type=int, env_var="CHAT_PORT", help='Port to listen')
-    p.add('--history', default="./chat_history.log", env_var="CHAT_HISTORY", help='Path to chat log')
+    p.add('--host', '-H', default="minechat.dvmn.org", env_var="CHAT_HOST", help='Host to connect to')
+    p.add('--port', '-p', default=5000, type=int, env_var="CHAT_PORT", help='Port to listen')
+    p.add('--history', '-l', default="./chat_history.log", env_var="CHAT_HISTORY", help='Path to chat log')
     return p
 
 
@@ -35,11 +35,11 @@ async def listen_to_chat(host, port, chat_log):
                     print(msg)
             except ConnectionRefusedError:
                 connection_error_count += 1
-                print(f"Соединение отвергнуто.")
+                print("Соединение отклонено.")
                 await delay_connection(connection_error_count)
             except ConnectionResetError:
                 connection_error_count += 1
-                print(f"Соединение сброшено.")
+                print("Соединение сброшено.")
                 await delay_connection(connection_error_count, max_delay=15)
 
 
