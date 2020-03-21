@@ -5,6 +5,8 @@ import configargparse
 import logging
 import json
 
+from connect_to_chat import get_chat_connection
+
 
 def create_argparser():
     p = configargparse.ArgParser(
@@ -25,16 +27,6 @@ def sanitize_text(msg):
     return " ".join(msg.split("\n"))
 
 
-async def connect(host: str, port: int) -> (StreamReader, StreamWriter):
-    reader, writer = await asyncio.open_connection(host, port)
-    return reader, writer
-
-
-async def disconnect(writer: StreamWriter):
-    writer.close()
-    await writer.wait_closed()
-
-
 async def send_data(writer: StreamWriter, msg: str):
     writer.write(f"{msg}\n".encode())
     await writer.drain()
@@ -53,12 +45,9 @@ async def authorize(reader: StreamReader, writer: StreamWriter, token: str) -> d
 
     user_str = await receive_data(reader)
     user_object = json.loads(user_str)
-    if not user_object:
-        print("Неизвестный токен. Проверьте его или зарегистрируйте заново.")
-    else:
-        print(f"Добро пожаловать, {user_object['nickname']}")
 
     await receive_data(reader)  # Получаем приветствие пользователя, после этого можно отправлять сообщения
+
     return user_object
 
 
@@ -71,7 +60,6 @@ async def register(reader: StreamReader, writer: StreamWriter, nickname):
 
     user_str = await receive_data(reader)
     user_object = json.loads(user_str)
-    print(f"Welcome, {user_object['nickname']}, your token is {user_object['nickname']} ")
 
     await receive_data(reader)  # Получаем приветствие пользователя
     return user_object
@@ -89,17 +77,21 @@ async def main():
     logging.basicConfig(format="%(levelname)-8s [%(asctime)s] %(message)s", level=log_level)
 
     user = None
-    reader, writer = await connect(arguments.host, arguments.port)
-    if arguments.token:
-        user = await authorize(reader, writer, arguments.token)
-    if not user:
-        if not arguments.nickname:
-            print("You have to provide nickname in order to register a user")
-            await disconnect(writer)
-            exit(-1)
-        await register(reader, writer, arguments.nickname)
+    async with get_chat_connection(arguments.host, arguments.port) as (reader, writer):
+        if arguments.token:
+            user = await authorize(reader, writer, arguments.token)
+            if not user:
+                print("Неизвестный токен. Проверьте его или зарегистрируйте заново.")
+            else:
+                print(f"Добро пожаловать, {user['nickname']}")
+        if not user:
+            if not arguments.nickname:
+                print("You have to provide nickname in order to register a user")
+                exit(-1)
+            user = await register(reader, writer, arguments.nickname)
+            print(f"Рады познакомится, {user['nickname']}, ваш токен - {user['nickname']} ")
 
-    await submit_message(reader, writer, arguments.message)
+        await submit_message(reader, writer, arguments.message)
 
 
 if __name__ == '__main__':
